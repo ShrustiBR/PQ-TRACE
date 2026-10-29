@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PQ-TRACE: Decryption Provenance & Leak Attribution (SIH26237 demo)</title>
+<style>
+:root{
+  --bg:#eef1f4;--card:#ffffff;--ink:#10202e;--mute:#566474;--line:#d6dde4;
+  --acc:#0b6e6e;--acc-ink:#ffffff;--ok:#117a43;--bad:#b92d1d;--warn:#8a5a00;
+  --soft:#e6f0f0;--code:#f3f5f7;
+  --serif:Georgia,"Times New Roman",serif;--sans:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){--bg:#0d161e;--card:#15212c;--ink:#e6edf3;--mute:#93a3b3;--line:#27384a;--acc:#3fb6b0;--acc-ink:#05211f;--ok:#4cc58a;--bad:#ff7a66;--warn:#e0a83c;--soft:#12303a;--code:#0f1a24}
+}
+:root[data-theme="dark"]{--bg:#0d161e;--card:#15212c;--ink:#e6edf3;--mute:#93a3b3;--line:#27384a;--acc:#3fb6b0;--acc-ink:#05211f;--ok:#4cc58a;--bad:#ff7a66;--warn:#e0a83c;--soft:#12303a;--code:#0f1a24}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans)}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 48px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:18px}
+h1{font:700 28px/1.15 var(--serif);margin:0;letter-spacing:-.01em}
+h1 small{display:block;font:500 13px var(--sans);color:var(--mute);margin-top:6px;letter-spacing:0}
+h2{font:700 18px var(--serif);margin:0 0 4px}
+.sub{color:var(--mute);margin:0 0 12px;font-size:13.5px}
+.badges{display:flex;gap:8px;flex-wrap:wrap}
+.badge{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:4px 11px;font-size:12.5px;color:var(--mute)}
+.badge b{color:var(--ink)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:6px}
+.dot.off{background:var(--warn)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+@media(max-width:940px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+.panel.side{position:sticky;top:12px}
+@media(max-width:940px){.panel.side{position:static}}
+.stephead{display:flex;gap:10px;align-items:baseline}
+.stepno{font:700 13px var(--mono);background:var(--acc);color:var(--acc-ink);border-radius:4px;padding:1px 7px}
+button{font:600 13.5px var(--sans);border:1px solid var(--acc);background:var(--acc);color:var(--acc-ink);border-radius:7px;padding:7px 13px;cursor:pointer}
+button.ghost{background:transparent;color:var(--acc)}
+button.danger{background:transparent;border-color:var(--bad);color:var(--bad)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+textarea,select{width:100%;font:13.5px/1.5 var(--mono);background:var(--code);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:9px}
+select{width:auto;font-family:var(--sans)}
+textarea{min-height:150px;resize:vertical}
+.people{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}
+@media(max-width:700px){.people{grid-template-columns:1fr}}
+.person{border:1px solid var(--line);border-radius:8px;padding:11px;background:var(--bg)}
+.person.open{border-color:var(--acc);background:var(--soft)}
+.person b{display:block}
+.person span{color:var(--mute);font-size:12.5px}
+.person .st{margin:8px 0;font:12px var(--mono);color:var(--mute);min-height:34px;word-break:break-all}
+.kv{font:12px var(--mono);color:var(--mute);word-break:break-all}
+.viewer{white-space:pre-wrap;font:13.5px/1.6 var(--serif);background:var(--code);border:1px solid var(--line);border-radius:7px;padding:12px;max-height:280px;overflow:auto}
+.chip{display:inline-block;background:var(--acc);color:var(--acc-ink);border-radius:3px;font:700 10px var(--mono);padding:0 4px;margin:0 2px;vertical-align:1px}
+.tbl{width:100%;border-collapse:collapse;font:12px var(--mono);display:block;overflow-x:auto}
+.tbl td,.tbl th{border-bottom:1px solid var(--line);padding:5px 8px;text-align:left;white-space:nowrap}
+.note{font-size:12.5px;color:var(--mute)}
+.ledger-e{border-left:3px solid var(--acc);padding:6px 10px;margin:8px 0;background:var(--bg);border-radius:0 6px 6px 0;font-size:12.5px}
+.ledger-e.bad{border-color:var(--bad)}
+.ledger-e b{font-size:13px}
+.chain{font-weight:700;font-size:13px}
+.chain.ok{color:var(--ok)}.chain.bad{color:var(--bad)}
+.verdict{border:2px solid var(--line);border-radius:10px;padding:14px;margin-top:12px}
+.verdict.yes{border-color:var(--ok)}
+.verdict.no{border-color:var(--warn)}
+.verdict h3{margin:0 0 6px;font:700 20px var(--serif)}
+.verdict.yes h3{color:var(--ok)}.verdict.no h3{color:var(--warn)}
+.checks{list-style:none;padding:0;margin:8px 0}
+.checks li{padding:3px 0;font-size:13.5px}
+.checks .y::before{content:"\2713  ";color:var(--ok);font-weight:700}
+.checks .n::before{content:"\2717  ";color:var(--bad);font-weight:700}
+footer{margin-top:8px;font-size:12.5px;color:var(--mute)}
+.hide{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>PQ-TRACE<small>Post-quantum decryption provenance and leak attribution · SIH26237 · Team NexaServe</small></h1>
+  <div class="badges">
+    <span class="badge"><span class="dot" id="netdot"></span><b id="nettxt">Network</b>: this page makes no network requests</span>
+    <button class="ghost" id="runall">Run full demo</button>
+    <button class="ghost" id="reset">Reset</button>
+  </div>
+</header>
+
+<div class="grid">
+<main>
+
+<section class="panel" id="p1">
+  <div class="stephead"><span class="stepno">1</span><h2>Lock the document once, one key per person</h2></div>
+  <p class="sub">The file is encrypted a single time. The file key is then wrapped separately for each recipient's public key, so adding a reader means adding one wrapped key.</p>
+  <textarea id="doc" aria-label="Document text"></textarea>
+  <div class="people" id="people"></div>
+  <div class="row"><button id="enc">Encrypt and wrap keys</button><span class="note" id="encnote"></span></div>
+  <div class="kv" id="envinfo"></div>
+</section>
+
+<section class="panel" id="p2">
+  <div class="stephead"><span class="stepno">2</span><h2>Each recipient opens it on their own device</h2></div>
+  <p class="sub">Opening produces a copy carrying a hidden mark unique to that person and that open, and a signed record of the event is added to the ledger.</p>
+  <div class="row" id="openrow"></div>
+  <div class="row" style="margin-top:10px">
+    <button class="ghost" id="outsider" disabled>Outsider tries to open</button>
+    <span class="note" id="outnote"></span>
+  </div>
+  <div id="viewbox" class="hide" style="margin-top:12px">
+    <div class="row" style="justify-content:space-between">
+      <label class="note"><input type="checkbox" id="reveal" checked> Show hidden marks</label>
+      <span class="note" id="viewwho"></span>
+    </div>
+    <div class="viewer" id="viewer"></div>
+    <p class="note" style="margin-top:10px">Every copy reads the same on screen. Only the hidden bytes differ:</p>
+    <table class="tbl" id="hashtbl"></table>
+  </div>
+</section>
+
+<section class="panel" id="p3">
+  <div class="stephead"><span class="stepno">3</span><h2>A copy leaks. Trace it.</h2></div>
+  <p class="sub">Pick which copy gets leaked and how it is altered, then trace it. The text box is editable, so you can try your own edits.</p>
+  <div class="row">
+    <select id="src" aria-label="Leaked copy source"></select>
+    <button class="ghost" id="lfull" disabled>Leak full copy</button>
+    <button class="ghost" id="lpart" disabled>Leak one paragraph</button>
+    <button class="ghost" id="lstrip" disabled>Leak with marks stripped</button>
+  </div>
+  <textarea id="leak" style="margin-top:10px" placeholder="Leaked text appears here. Paste any text to trace it."></textarea>
+  <div class="row" style="margin-top:10px"><button id="trace" disabled>Trace leak</button><span class="note" id="tracenote"></span></div>
+  <div id="verdict"></div>
+</section>
+
+</main>
+
+<aside>
+<section class="panel side">
+  <h2>Decryption ledger</h2>
+  <p class="sub">Signed, hash-chained, append-only.</p>
+  <div class="row" style="justify-content:space-between">
+    <span class="chain ok" id="chainst">Chain: empty</span>
+    <button class="ghost" id="verify" disabled>Verify</button>
+  </div>
+  <div id="ledger"><p class="note">No decryptions yet.</p></div>
+  <div class="row" style="margin-top:8px"><button class="danger" id="tamper" disabled>Tamper with entry 1</button></div>
+  <p class="note" style="margin-top:8px">Tampering breaks the hash chain and the signature, so the trace refuses to name anyone.</p>
+</section>
+</aside>
+</div>
+
+<footer>
+  Browser build uses Web Crypto as stand-ins: AES-256-GCM for the file, ECDH P-256 key wrapping (HPKE-style) and ECDSA P-256 signatures. The full build swaps these for ML-KEM-768 and ML-DSA-65 (NIST FIPS 203 and 204, via liboqs) with the same flow. Watermark here is a text-layer mark; screenshot and print-scan survival is part of the full build's tested channels.
+</footer>
+</div>
+
+<script>
+"use strict";
+const enc=new TextEncoder(),dec=new TextDecoder();
+const $=id=>document.getElementById(id);
+const b64=u=>{let s="";new Uint8Array(u).forEach(b=>s+=String.fromCharCode(b));return btoa(s)};
+const unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const hex=u=>[...new Uint8Array(u)].map(b=>b.toString(16).padStart(2,"0")).join("");
+const sha=async s=>hex(await crypto.subtle.digest("SHA-256",typeof s==="string"?enc.encode(s):s));
+const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const short=h=>h.slice(0,8)+"…"+h.slice(-4);
+
+const DOC=`CABINET NOTE 47/2026 · RESTRICTED
+
+Subject: Proposed revision of the national procurement framework.
+
+The committee recommends that all tenders above 50 crore rupees be evaluated in two stages. The first stage checks technical eligibility without reference to price. The second stage ranks only the eligible bidders on the lowest evaluated cost.
+
+Bid opening will move to a sealed digital process with a public audit trail. Each step will be time-stamped by the tendering authority. Any deviation must be recorded with written reasons.
+
+The estimated saving over five years is 1,200 crore rupees. The figure is provisional and must not be quoted outside the committee. Final numbers will follow after the pilot in three states.
+
+Members are requested to send written comments within ten days.`;
+
+const PEOPLE=[
+ {id:1,name:"Asha Verma",role:"Joint Secretary"},
+ {id:2,name:"Ravi Menon",role:"Legal Advisor"},
+ {id:3,name:"Meera Iyer",role:"Finance Officer"}];
+
+let S;
+function freshState(){S={env:null,ledger:[],copies:{},events:[],backup:null,viewing:null};PEOPLE.forEach(p=>{p.ecdh=null;p.sign=null});}
+freshState();
+
+/* ---- hidden mark: 32 bits = recipient(8) + open nonce(16) + crc8(8) ---- */
+const Z0="\u200B",Z1="\u200C",WJ="\u2060";
+function crc8(bytes){let c=0;for(const b of bytes){c^=b;for(let i=0;i<8;i++)c=(c&0x80)?(((c<<1)^0x07)&0xff):((c<<1)&0xff);}return c}
+function makeMark(rid,nonce){
+  const bytes=[rid,(nonce>>8)&255,nonce&255];bytes.push(crc8(bytes));
+  const bits=bytes.map(b=>b.toString(2).padStart(8,"0")).join("");
+  return {bits,str:WJ+[...bits].map(x=>x==="0"?Z0:Z1).join("")+WJ};
+}
+function embed(text,mark){return text.replace(/\.(?=\s|$)/g,"."+mark)}
+const MARK_RE=/\u2060([\u200B\u200C]{32})\u2060/g;
+function decodeMarks(text){
+  const votes=new Map();let total=0;
+  for(const m of text.matchAll(MARK_RE)){
+    total++;
+    const bits=[...m[1]].map(c=>c===Z0?"0":"1").join("");
+    const bytes=bits.match(/.{8}/g).map(b=>parseInt(b,2));
+    if(crc8(bytes.slice(0,3))!==bytes[3])continue;
+    votes.set(bits,(votes.get(bits)||0)+1);
+  }
+  let best=null;for(const [bits,n] of votes){if(!best||n>best.n)best={bits,n}}
+  if(!best)return {total,found:null};
+  const by=best.bits.match(/.{8}/g).map(b=>parseInt(b,2));
+  return {total,found:{bits:best.bits,n:best.n,rid:by[0],eventId:((by[1]<<8)|by[2]).toString(16).padStart(4,"0")}};
+}
+const stripMarks=t=>t.replace(/[\u200B\u200C\u2060]/g,"");
+
+/* ---- crypto ---- */
+const ECDH={name:"ECDH",namedCurve:"P-256"};
+async function encryptAll(){
+  const text=$("doc").value;
+  for(const p of PEOPLE){
+    p.ecdh=await crypto.subtle.generateKey(ECDH,true,["deriveKey"]);
+    p.sign=await crypto.subtle.generateKey({name:"ECDSA",namedCurve:"P-256"},true,["sign","verify"]);
+  }
+  const cek=await crypto.subtle.generateKey({name:"AES-GCM",length:256},true,["encrypt","decrypt"]);
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv},cek,enc.encode(text));
+  const raw=await crypto.subtle.exportKey("raw",cek);
+  const wraps={};
+  for(const p of PEOPLE){
+    const eph=await crypto.subtle.generateKey(ECDH,true,["deriveKey"]);
+    const kek=await crypto.subtle.deriveKey({name:"ECDH",public:p.ecdh.publicKey},eph.privateKey,{name:"AES-GCM",length:256},false,["encrypt"]);
+    const wiv=crypto.getRandomValues(new Uint8Array(12));
+    const wrapped=await crypto.subtle.encrypt({name:"AES-GCM",iv:wiv},kek,raw);
+    wraps[p.id]={eph:b64(await crypto.subtle.exportKey("raw",eph.publicKey)),iv:b64(wiv),wrapped:b64(wrapped)};
+  }
+  S.env={iv:b64(iv),ct:b64(ct),docHash:await sha(text),wraps,ctBytes:ct.byteLength};
+}
+async function unwrapKey(privKey,w){
+  const eph=await crypto.subtle.importKey("raw",unb64(w.eph),ECDH,false,[]);
+  const kek=await crypto.subtle.deriveKey({name:"ECDH",public:eph},privKey,{name:"AES-GCM",length:256},false,["decrypt"]);
+  const raw=await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(w.iv)},kek,unb64(w.wrapped));
+  return crypto.subtle.importKey("raw",raw,"AES-GCM",false,["decrypt"]);
+}
+async function openAs(p){
+  const cek=await unwrapKey(p.ecdh.privateKey,S.env.wraps[p.id]);
+  const plain=dec.decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(S.env.iv)},cek,unb64(S.env.ct)));
+  const nonce=crypto.getRandomValues(new Uint16Array(1))[0];
+  const mark=makeMark(p.id,nonce);
+  const copy=embed(plain,mark.str);
+  const event={eventId:nonce.toString(16).padStart(4,"0"),rid:p.id,recipient:p.name,docHash:S.env.docHash,markHash:await sha(mark.bits),ts:new Date().toISOString()};
+  const eventStr=JSON.stringify(event);
+  const sig=b64(await crypto.subtle.sign({name:"ECDSA",hash:"SHA-256"},p.sign.privateKey,enc.encode(eventStr)));
+  const prev=S.ledger.length?S.ledger[S.ledger.length-1].hash:"0".repeat(64);
+  const hash=await sha(prev+eventStr+sig);
+  S.ledger.push({i:S.ledger.length+1,eventStr,sig,prev,hash});
+  S.copies[p.id]={text:copy,event};
+  S.viewing=p.id;
+}
+async function verifyChain(){
+  let prev="0".repeat(64);
+  for(let k=0;k<S.ledger.length;k++){
+    const e=S.ledger[k];
+    if(e.prev!==prev||await sha(prev+e.eventStr+e.sig)!==e.hash)return {ok:false,bad:k+1};
+    prev=e.hash;
+  }
+  return {ok:true};
+}
+
+/* ---- UI ---- */
+function renderPeople(){
+  $("people").innerHTML=PEOPLE.map(p=>{
+    const w=S.env&&S.env.wraps[p.id];const c=S.copies[p.id];
+    return `<div class="person ${c?"open":""}"><b>${p.name}</b><span>${p.role}</span>
+    <div class="st">${c?`opened · event ${c.event.eventId}`:w?`wrapped key ${short(hex(unb64(w.wrapped)))}`:"no key yet"}</div></div>`}).join("");
+  $("openrow").innerHTML=PEOPLE.map(p=>`<button class="ghost" data-open="${p.id}" ${S.env?"":"disabled"}>Open as ${p.name.split(" ")[0]}</button>`).join("");
+  $("openrow").querySelectorAll("button").forEach(b=>b.onclick=async()=>{b.disabled=true;await openAs(PEOPLE.find(p=>p.id==b.dataset.open));await refresh()});
+  $("src").innerHTML=PEOPLE.filter(p=>S.copies[p.id]).map(p=>`<option value="${p.id}">${p.name}'s copy</option>`).join("")||`<option value="">(no copies yet)</option>`;
+  $("src").value=S.viewing||$("src").value;
+}
+async function renderView(){
+  const ids=PEOPLE.filter(p=>S.copies[p.id]);
+  $("viewbox").classList.toggle("hide",!ids.length);
+  if(!ids.length)return;
+  const c=S.copies[S.viewing]||S.copies[ids[0].id];
+  const who=PEOPLE.find(p=>S.copies[p.id]===c);
+  $("viewwho").textContent=`Copy opened by ${who.name}`;
+  const v=$("reveal").checked?esc(c.text).replace(MARK_RE,'<span class="chip" title="hidden mark">MARK</span>'):esc(c.text);
+  $("viewer").innerHTML=v;
+  let rows=`<tr><th>Recipient</th><th>Visible text hash</th><th>Raw bytes hash</th></tr>`;
+  for(const p of ids){const t=S.copies[p.id].text;rows+=`<tr><td>${p.name}</td><td>${short(await sha(stripMarks(t)))}</td><td>${short(await sha(t))}</td></tr>`}
+  $("hashtbl").innerHTML=rows;
+}
+function renderLedger(chain){
+  const L=S.ledger;
+  $("ledger").innerHTML=L.length?L.map(e=>{const ev=safeParse(e.eventStr);const bad=chain&&!chain.ok&&chain.bad===e.i;
+    return `<div class="ledger-e ${bad?"bad":""}"><b>#${e.i} · ${esc(ev.recipient||"?")}</b><br>event ${esc(ev.eventId||"?")} · ${esc((ev.ts||"").slice(11,19))}<br><span class="kv">hash ${short(e.hash)}<br>prev ${short(e.prev)}</span></div>`}).join(""):`<p class="note">No decryptions yet.</p>`;
+  const st=$("chainst");
+  if(!L.length){st.className="chain ok";st.textContent="Chain: empty"}
+  else if(chain&&!chain.ok){st.className="chain bad";st.textContent=`Chain BROKEN at entry #${chain.bad}`}
+  else{st.className="chain ok";st.textContent=`Chain intact · ${L.length} entr${L.length>1?"ies":"y"}`}
+  $("verify").disabled=!L.length;$("tamper").disabled=!L.length;
+  $("tamper").textContent=S.backup?"Restore entry 1":"Tamper with entry 1";
+}
+function safeParse(s){try{return JSON.parse(s)}catch(e){return {}}}
+async function refresh(){
+  renderPeople();await renderView();
+  const chain=await verifyChain();renderLedger(chain);
+  const any=PEOPLE.some(p=>S.copies[p.id]);
+  ["lfull","lpart","lstrip","outsider"].forEach(i=>$(i).disabled=!(any&&(i!=="outsider"||S.env)));
+  $("trace").disabled=false;
+  $("enc").disabled=!!S.env;
+  $("encnote").textContent=S.env?"Locked. One ciphertext, three wrapped keys.":"";
+  $("envinfo").textContent=S.env?`ciphertext ${S.env.ctBytes} bytes · document hash ${short(S.env.docHash)} · AES-256-GCM`:"";
+}
+
+/* ---- trace ---- */
+async function trace(){
+  const text=$("leak").value;const out=$("verdict");
+  if(!text.trim()){out.innerHTML="";$("tracenote").textContent="Paste or generate leaked text first.";return}
+  $("tracenote").textContent="";
+  const d=decodeMarks(text);const checks=[];
+  let verdictYes=false,name="",detail="";
+  if(!d.found){
+    checks.push([false,d.total?"Hidden mark found, but its checksum is invalid (text was altered)":"No hidden mark found in this text"]);
+  }else{
+    checks.push([true,`Hidden mark found and checksum valid (${d.found.n} of ${d.total} marks agree)`]);
+    const chain=await verifyChain();
+    const entry=S.ledger.find(e=>{const ev=safeParse(e.eventStr);return ev.eventId===d.found.eventId&&ev.rid===d.found.rid});
+    checks.push([!!entry,entry?`Signed open-event ${d.found.eventId} found in ledger (entry #${entry.i})`:"No matching signed open-event in ledger"]);
+    let sigOK=false,markOK=false;
+    if(entry){
+      const ev=safeParse(entry.eventStr);const p=PEOPLE.find(x=>x.id===d.found.rid);
+      try{sigOK=await crypto.subtle.verify({name:"ECDSA",hash:"SHA-256"},p.sign.publicKey,unb64(entry.sig),enc.encode(entry.eventStr))}catch(e){}
+      markOK=ev.markHash===await sha(d.found.bits);
+      name=ev.recipient;
+      checks.push([sigOK,sigOK?`Recipient's signature on the event verifies`:"Recipient's signature does not verify (record was altered)"]);
+      checks.push([markOK,markOK?"Mark fingerprint matches the ledger record":"Mark fingerprint does not match the ledger record"]);
+    }
+    checks.push([chain.ok,chain.ok?"Ledger hash-chain is intact":`Ledger hash-chain is broken at entry #${chain.bad}`]);
+    verdictYes=!!entry&&sigOK&&markOK&&chain.ok;
+    renderLedger(chain);
+  }
+  const clean=stripMarks(text).trim();
+  const sents=S.env?stripMarks(PEOPLE.length&&S.copies[Object.keys(S.copies)[0]]?S.copies[Object.keys(S.copies)[0]].text:"").split(/(?<=\.)\s+/).filter(Boolean):[];
+  const hit=sents.filter(s=>clean.includes(s.trim())).length;
+  const content=!sents.length?"":(clean===stripMarks(S.copies[Object.keys(S.copies)[0]].text).trim()?"Content: full document.":`Content: excerpt, ${hit} of ${sents.length} sentences from the document.`);
+  if(verdictYes){
+    const others=PEOPLE.filter(p=>p.name!==name).map(p=>p.name);
+    out.innerHTML=`<div class="verdict yes"><h3>Leak attributed to ${esc(name)}</h3>
+      <ul class="checks">${checks.map(c=>`<li class="${c[0]?"y":"n"}">${esc(c[1])}</li>`).join("")}</ul>
+      <p class="note">${content} ${esc(others.join(" and "))} are cleared: their copies carry different marks and their own signed records.</p></div>`;
+  }else{
+    out.innerHTML=`<div class="verdict no"><h3>Inconclusive. No one is accused.</h3>
+      <ul class="checks">${checks.map(c=>`<li class="${c[0]?"y":"n"}">${esc(c[1])}</li>`).join("")}</ul>
+      <p class="note">A mark alone never accuses; a verified, signed record must back it up.${d.found?" The mark points to a recipient ID, but the record failed verification.":" A cleaned copy needs the robust watermark layer and other evidence."}</p></div>`;
+  }
+}
+
+/* ---- wiring ---- */
+function srcCopy(){const c=S.copies[$("src").value];return c?c.text:""}
+$("enc").onclick=async()=>{$("enc").disabled=true;await encryptAll();await refresh()};
+$("outsider").onclick=async()=>{
+  try{
+    const k=await crypto.subtle.generateKey(ECDH,true,["deriveKey"]);
+    await unwrapKey(k.privateKey,S.env.wraps[1]);$("outnote").textContent="Unexpectedly opened.";
+  }catch(e){$("outnote").textContent="Refused: this key cannot unwrap any recipient's key, so nothing decrypts and nothing is logged."}
+};
+$("reveal").onchange=renderView;
+$("src").onchange=()=>{S.viewing=+$("src").value;renderView()};
+$("lfull").onclick=()=>{$("leak").value=srcCopy()};
+$("lpart").onclick=()=>{$("leak").value=srcCopy().split("\n\n")[3]||srcCopy().split("\n\n")[2]||""};
+$("lstrip").onclick=()=>{$("leak").value=stripMarks(srcCopy())};
+$("trace").onclick=trace;
+$("verify").onclick=async()=>renderLedger(await verifyChain());
+$("tamper").onclick=async()=>{
+  if(!S.ledger.length)return;
+  if(S.backup){S.ledger[0].eventStr=S.backup;S.backup=null}
+  else{S.backup=S.ledger[0].eventStr;const ev=safeParse(S.backup);ev.recipient="Someone Else";S.ledger[0].eventStr=JSON.stringify(ev)}
+  await refresh();
+};
+$("reset").onclick=()=>{freshState();$("leak").value="";$("verdict").innerHTML="";$("outnote").textContent="";$("doc").value=DOC;refresh()};
+$("runall").onclick=async()=>{
+  $("reset").click();await encryptAll();
+  for(const p of PEOPLE)await openAs(p);
+  S.viewing=3;await refresh();$("src").value="3";$("leak").value=S.copies[3].text;await trace();
+  $("p3").scrollIntoView({behavior:"smooth"});
+};
+function net(){const on=navigator.onLine;$("nettxt").textContent=on?"Online (unused)":"Offline";$("netdot").className="dot"+(on?" off":"")}
+window.addEventListener("online",net);window.addEventListener("offline",net);net();
+$("doc").value=DOC;refresh();
+</script>
+</body>
+</html>

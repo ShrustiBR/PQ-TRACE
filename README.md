@@ -1,9 +1,9 @@
 # PQ-TRACE
 
+Live Demo : https://tubular-banoffee-ab79c5.netlify.app/
+
 **Every copy carries a secret name tag.**
 Post-quantum decryption provenance and leak attribution for multi-recipient encrypted documents.
-
-Smart India Hackathon 2026 · Problem Statement **SIH26237** · Theme: Blockchain & Cybersecurity · Category: Software
 
 > **Status:** in development. This README describes the design and the planned demo. File names and commands below are the planned layout, so adjust them to match your final code.
 
